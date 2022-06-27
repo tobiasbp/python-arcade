@@ -59,6 +59,40 @@ class Player(arcade.Sprite):
         elif self.right > SCREEN_WIDTH - 1:
             self.right = SCREEN_WIDTH - 1
 
+class Tile(arcade.Sprite):
+    """
+    A tile :)
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Setup new Tile object
+        """
+        # Graphics to use for Player
+        kwargs['filename'] = "images/playerShip1_red.png"
+
+        # How much to scale the graphics
+        kwargs['scale'] = SPRITE_SCALING
+
+        # Pass arguments to class arcade.Sprite
+        super().__init__(**kwargs)
+
+class TileMatrix:
+    """
+    Matrix of Tile(s) >:)
+    """
+    def __init__(self, matrix_width = 5, matrix_height = 5, tile_size = 80, matrix_offset_x = 30, matrix_offset_y = 25):
+        self.matrix = arcade.SpriteList()
+
+
+        for i in range(matrix_width * matrix_height):
+            t = Tile()
+            t.center_x = ((i % matrix_width) * tile_size) + matrix_offset_x
+            t.center_y = ((i // matrix_height) * tile_size) + matrix_offset_y
+            self.matrix.append(t)
+
+    def draw(self):
+        self.matrix.draw()
 
 class PlayerShot(arcade.Sprite):
     """
@@ -111,6 +145,9 @@ class MyGame(arcade.Window):
         self.player_score = None
         self.player_lives = None
 
+        #Set up matrix
+        self.tile_matrix = None
+
         # Track the current state of what key is pressed
         self.left_pressed = False
         self.right_pressed = False
@@ -162,6 +199,9 @@ class MyGame(arcade.Window):
             center_y=PLAYER_START_Y
         )
 
+        # Create tile matrix
+        self.tile_matrix = TileMatrix()
+
     def on_draw(self):
         """
         Render the screen.
@@ -183,6 +223,9 @@ class MyGame(arcade.Window):
             SCREEN_HEIGHT - 20,  # Y positon
             arcade.color.WHITE   # Color of text
         )
+
+        # Draw matrix on screen
+        self.tile_matrix.draw()
 
     def on_update(self, delta_time):
         """
