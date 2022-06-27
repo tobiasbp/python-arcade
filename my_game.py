@@ -25,6 +25,7 @@ PLAYER_SHOT_SPEED = 4
 
 FIRE_KEY = arcade.key.SPACE
 
+
 class Player(arcade.Sprite):
     """
     The player
@@ -36,14 +37,13 @@ class Player(arcade.Sprite):
         """
 
         # Graphics to use for Player
-        kwargs['filename'] = "images/playerShip1_red.png"
+        kwargs["filename"] = "images/playerShip1_red.png"
 
         # How much to scale the graphics
-        kwargs['scale'] = SPRITE_SCALING
+        kwargs["scale"] = SPRITE_SCALING
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
-
 
     def update(self):
         """
@@ -59,6 +59,7 @@ class Player(arcade.Sprite):
         elif self.right > SCREEN_WIDTH - 1:
             self.right = SCREEN_WIDTH - 1
 
+
 class Tile(arcade.Sprite):
     """
     A tile :)
@@ -69,21 +70,29 @@ class Tile(arcade.Sprite):
         Setup new Tile object
         """
         # Graphics to use for Player
-        kwargs['filename'] = "images/playerShip1_red.png"
+        kwargs["filename"] = "images/playerShip1_red.png"
 
         # How much to scale the graphics
-        kwargs['scale'] = SPRITE_SCALING
+        kwargs["scale"] = SPRITE_SCALING
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
+
 
 class TileMatrix:
     """
     Matrix of Tile(s) >:)
     """
-    def __init__(self, matrix_width = 5, matrix_height = 5, tile_size = 80, matrix_offset_x = 30, matrix_offset_y = 25):
-        self.matrix = arcade.SpriteList()
 
+    def __init__(
+        self,
+        matrix_width=5,
+        matrix_height=5,
+        tile_size=80,
+        matrix_offset_x=30,
+        matrix_offset_y=25,
+    ):
+        self.matrix = arcade.SpriteList()
 
         for i in range(matrix_width * matrix_height):
             t = Tile()
@@ -93,6 +102,7 @@ class TileMatrix:
 
     def draw(self):
         self.matrix.draw()
+
 
 class PlayerShot(arcade.Sprite):
     """
@@ -145,7 +155,7 @@ class MyGame(arcade.Window):
         self.player_score = None
         self.player_lives = None
 
-        #Set up matrix
+        # Set up matrix
         self.tile_matrix = None
 
         # Track the current state of what key is pressed
@@ -176,13 +186,12 @@ class MyGame(arcade.Window):
             print("No joysticks found")
             self.joystick = None
 
-
-            #self.joystick.
+            # self.joystick.
         # Set the background color
         arcade.set_background_color(arcade.color.AMAZON)
 
     def setup(self):
-        """ Set up the game and initialize the variables. """
+        """Set up the game and initialize the variables."""
 
         # No points when the game starts
         self.player_score = 0
@@ -194,10 +203,7 @@ class MyGame(arcade.Window):
         self.player_shot_list = arcade.SpriteList()
 
         # Create a Player object
-        self.player_sprite = Player(
-            center_x=PLAYER_START_X,
-            center_y=PLAYER_START_Y
-        )
+        self.player_sprite = Player(center_x=PLAYER_START_X, center_y=PLAYER_START_Y)
 
         # Create tile matrix
         self.tile_matrix = TileMatrix()
@@ -219,9 +225,9 @@ class MyGame(arcade.Window):
         # Draw players score on screen
         arcade.draw_text(
             "SCORE: {}".format(self.player_score),  # Text to show
-            10,                  # X position
+            10,  # X position
             SCREEN_HEIGHT - 20,  # Y positon
-            arcade.color.WHITE   # Color of text
+            arcade.color.WHITE,  # Color of text
         )
 
         # Draw matrix on screen
@@ -268,8 +274,7 @@ class MyGame(arcade.Window):
 
         if key == FIRE_KEY:
             new_shot = PlayerShot(
-                self.player_sprite.center_x,
-                self.player_sprite.center_y
+                self.player_sprite.center_x, self.player_sprite.center_y
             )
 
             self.player_shot_list.append(new_shot)
@@ -301,6 +306,7 @@ class MyGame(arcade.Window):
 
     def on_joyhat_motion(self, joystick, hat_x, hat_y):
         print("Joystick hat ({}, {})".format(hat_x, hat_y))
+
 
 def main():
     """
