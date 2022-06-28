@@ -6,11 +6,13 @@ This program uses the Arcade library found at http://arcade.academy
 Artwork from https://kenney.nl/assets/space-shooter-redux
 
 """
-
+import random
 import arcade
 
 
 SPRITE_SCALING = 0.5
+TILE_SCALING = 4
+TILE_SIZE = TILE_SCALING * 16
 
 # Set the size of the screen
 SCREEN_WIDTH = 800
@@ -65,15 +67,29 @@ class Tile(arcade.Sprite):
     A tile :)
     """
 
-    def __init__(self, **kwargs):
+    types = {
+        0: {"out_dir": 0, "image": "wall_none.png"},
+        1: {"out_dir": 2, "image": "wall_top.png"},
+        2: {"out_dir": 3, "image": "wall_right.png"},
+        3: {"out_dir": 4, "image": "wall_bottom.png"},
+        4: {"out_dir": 1, "image": "wall_left.png"},
+        5: {"out_dir": 2, "image": "wall_top_left.png"},
+        6: {"out_dir": 3, "image": "wall_top_right.png"},
+        7: {"out_dir": 4, "image": "wall_bottom_right.png"},
+        8: {"out_dir": 1, "image": "wall_bottom_left.png"},
+    }
+
+    def __init__(self, type=0, **kwargs):
         """
         Setup new Tile object
         """
+        self.my_type = Tile.types[type]
+
         # Graphics to use for Player
-        kwargs["filename"] = "images/playerShip1_red.png"
+        kwargs["filename"] = f'images/Tiles/{self.my_type["image"]}'
 
         # How much to scale the graphics
-        kwargs["scale"] = SPRITE_SCALING
+        kwargs["scale"] = TILE_SCALING
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
@@ -82,26 +98,42 @@ class Tile(arcade.Sprite):
 class TileMatrix:
     """
     Matrix of Tile(s) >:)
+    Consists of chuchus
     """
 
     def __init__(
         self,
+        tile_types,
         matrix_width=5,
         matrix_height=5,
-        tile_size=80,
-        matrix_offset_x=30,
-        matrix_offset_y=25,
+        tile_size=TILE_SIZE,
+        matrix_offset_x=TILE_SIZE / 2,
+        matrix_offset_y=TILE_SIZE / 2,
     ):
+        # Create matrix
         self.matrix = arcade.SpriteList()
 
+        # Append tiles to matrix
         for i in range(matrix_width * matrix_height):
-            t = Tile()
+            t = Tile(type=tile_types[i])
             t.center_x = ((i % matrix_width) * tile_size) + matrix_offset_x
             t.center_y = ((i // matrix_height) * tile_size) + matrix_offset_y
             self.matrix.append(t)
 
+        self.chuchus = arcade.SpriteList()
+        self.players = arcade.SpriteList()
+
     def draw(self):
         self.matrix.draw()
+        self.chuchus.draw()
+        self.players.draw()
+
+    def update(self, delta_time):
+        for c in self.chuchus:
+            c.update(delta_time)
+
+        for p in self.players:
+            p.update(delta_time)
 
 
 class PlayerShot(arcade.Sprite):
@@ -138,6 +170,17 @@ class MyGame(arcade.Window):
     """
     Main application class.
     """
+
+    # Drawn upside down
+    levels = {
+        1: {
+            "tiles": [8, 3, 3, 3, 7]
+            + [4, 0, 0, 0, 2]
+            + [4, 0, 0, 0, 2]
+            + [4, 0, 0, 0, 2]
+            + [5, 1, 1, 1, 6]
+        }
+    }
 
     def __init__(self, width, height):
         """
@@ -206,7 +249,7 @@ class MyGame(arcade.Window):
         self.player_sprite = Player(center_x=PLAYER_START_X, center_y=PLAYER_START_Y)
 
         # Create tile matrix
-        self.tile_matrix = TileMatrix()
+        self.tile_matrix = TileMatrix(tile_types=MyGame.levels[1]["tiles"])
 
     def on_draw(self):
         """
