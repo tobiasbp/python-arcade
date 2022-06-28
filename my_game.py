@@ -33,10 +33,11 @@ class Player(arcade.Sprite):
     The player
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, tile_pos, **kwargs):
         """
         Setup new Player object
         """
+        self.tile_pos = tile_pos
 
         # Graphics to use for Player
         kwargs["filename"] = "images/playerShip1_red.png"
@@ -47,19 +48,11 @@ class Player(arcade.Sprite):
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
 
-    def update(self):
+    def update(self, delta_time):
         """
         Move the sprite
         """
-
-        # Update center_x
-        self.center_x += self.change_x
-
-        # Don't let the player move off screen
-        if self.left < 0:
-            self.left = 0
-        elif self.right > SCREEN_WIDTH - 1:
-            self.right = SCREEN_WIDTH - 1
+        pass
 
 
 class Tile(arcade.Sprite):
@@ -107,12 +100,16 @@ class TileMatrix:
         matrix_width=5,
         matrix_height=5,
         tile_size=TILE_SIZE,
-        matrix_offset_x=TILE_SIZE / 2,
-        matrix_offset_y=TILE_SIZE / 2,
+        matrix_offset_x=200,
+        matrix_offset_y=200,
     ):
         # Create matrix
         self.matrix = arcade.SpriteList()
 
+        self.matrix_width = matrix_width
+        self.matrix_height = matrix_height
+        self.matrix_offset_x = matrix_offset_x
+        self.matrix_offset_y = matrix_offset_y
         # Append tiles to matrix
         for i in range(matrix_width * matrix_height):
             t = Tile(type=tile_types[i])
@@ -122,6 +119,21 @@ class TileMatrix:
 
         self.chuchus = arcade.SpriteList()
         self.players = arcade.SpriteList()
+        self.players.append(Player(tile_pos=(1, 1)))
+
+    def move_player(self, player_no, dir):
+        """
+        The player is moved
+        """
+        current_pos = self.players[player_no].tile_pos
+        new_pos = (current_pos[0] + dir[0], current_pos[1] + dir[1])
+
+        if not -1 < new_pos[0] < self.matrix_width:
+            return
+        if not -1 < new_pos[1] < self.matrix_height:
+            return
+
+        self.players[player_no].tile_pos = new_pos
 
     def draw(self):
         self.matrix.draw()
@@ -134,6 +146,8 @@ class TileMatrix:
 
         for p in self.players:
             p.update(delta_time)
+            p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
+            p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
 
 
 class PlayerShot(arcade.Sprite):
@@ -245,9 +259,6 @@ class MyGame(arcade.Window):
         # Sprite lists
         self.player_shot_list = arcade.SpriteList()
 
-        # Create a Player object
-        self.player_sprite = Player(center_x=PLAYER_START_X, center_y=PLAYER_START_Y)
-
         # Create tile matrix
         self.tile_matrix = TileMatrix(tile_types=MyGame.levels[1]["tiles"])
 
@@ -261,9 +272,6 @@ class MyGame(arcade.Window):
 
         # Draw the player shot
         self.player_shot_list.draw()
-
-        # Draw the player sprite
-        self.player_sprite.draw()
 
         # Draw players score on screen
         arcade.draw_text(
@@ -281,24 +289,10 @@ class MyGame(arcade.Window):
         Movement and game logic
         """
 
-        # Calculate player speed based on the keys pressed
-        self.player_sprite.change_x = 0
-
-        # Move player with keyboard
-        if self.left_pressed and not self.right_pressed:
-            self.player_sprite.change_x = -PLAYER_SPEED_X
-        elif self.right_pressed and not self.left_pressed:
-            self.player_sprite.change_x = PLAYER_SPEED_X
-
-        # Move player with joystick if present
-        if self.joystick:
-            self.player_sprite.change_x = round(self.joystick.x) * PLAYER_SPEED_X
-
-        # Update player sprite
-        self.player_sprite.update()
-
         # Update the player shots
         self.player_shot_list.update()
+
+        self.tile_matrix.update(delta_time)
 
     def on_key_press(self, key, modifiers):
         """
@@ -308,12 +302,16 @@ class MyGame(arcade.Window):
         # Track state of arrow keys
         if key == arcade.key.UP:
             self.up_pressed = True
+            self.tile_matrix.move_player(0, (0, 1))
         elif key == arcade.key.DOWN:
             self.down_pressed = True
+            self.tile_matrix.move_player(0, (0, -1))
         elif key == arcade.key.LEFT:
             self.left_pressed = True
+            self.tile_matrix.move_player(0, (-1, 0))
         elif key == arcade.key.RIGHT:
             self.right_pressed = True
+            self.tile_matrix.move_player(0, (1, 0))
 
         if key == FIRE_KEY:
             new_shot = PlayerShot(
