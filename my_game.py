@@ -78,7 +78,7 @@ class Tile(arcade.Sprite):
         """
         self.my_type = Tile.types[type]
 
-        # Graphics to use for Player
+        # Graphics to use for Tile
         kwargs["filename"] = f'images/Tiles/{self.my_type["image"]}'
 
         # How much to scale the graphics
@@ -86,6 +86,29 @@ class Tile(arcade.Sprite):
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
+
+
+class Emitter(arcade.Sprite):
+    """
+    An emitter spawning chuchus
+    """
+
+    emitter_types = {0: {"image": "images/Emitter/Emitter_jar.png"}}
+
+    def __init__(self, on_tile, type=0, **kwargs):
+        """
+        Setup new Emitter
+        """
+        kwargs["filename"] = Emitter.emitter_types[type]["image"]
+        kwargs["scale"] = TILE_SCALING
+
+        # Pass arguments to class arcade.Sprite
+        super().__init__(**kwargs)
+        self.go_to_tile(on_tile)
+
+    def go_to_tile(self, tile):
+        self.on_tile = tile
+        self.position = self.on_tile.position
 
 
 class TileMatrix:
@@ -110,6 +133,7 @@ class TileMatrix:
         self.matrix_height = matrix_height
         self.matrix_offset_x = matrix_offset_x
         self.matrix_offset_y = matrix_offset_y
+
         # Append tiles to matrix
         for i in range(matrix_width * matrix_height):
             t = Tile(type=tile_types[i])
@@ -117,9 +141,19 @@ class TileMatrix:
             t.center_y = ((i // matrix_height) * tile_size) + matrix_offset_y
             self.matrix.append(t)
 
+        # Create list for chuchus
         self.chuchus = arcade.SpriteList()
+
+        # Create list for Players
         self.players = arcade.SpriteList()
+        # Append player to playerlist with start position
         self.players.append(Player(tile_pos=(1, 1)))
+
+        # Create list for Emitters
+        self.emitters = arcade.SpriteList()
+        on_tile = random.choice(self.matrix)
+        emitter = Emitter(on_tile)
+        self.add_emitter(emitter)
 
     def move_player(self, player_no, dir):
         """
@@ -128,15 +162,24 @@ class TileMatrix:
         current_pos = self.players[player_no].tile_pos
         new_pos = (current_pos[0] + dir[0], current_pos[1] + dir[1])
 
+        # Check if new position is legal
         if not -1 < new_pos[0] < self.matrix_width:
             return
         if not -1 < new_pos[1] < self.matrix_height:
             return
 
+        # Update player position
         self.players[player_no].tile_pos = new_pos
+
+    def add_emitter(self, emitter):
+        """
+        An emitter is added and placed
+        """
+        self.emitters.append(emitter)
 
     def draw(self):
         self.matrix.draw()
+        self.emitters.draw()
         self.chuchus.draw()
         self.players.draw()
 
@@ -192,7 +235,8 @@ class MyGame(arcade.Window):
             + [4, 0, 0, 0, 2]
             + [4, 0, 0, 0, 2]
             + [4, 0, 0, 0, 2]
-            + [5, 1, 1, 1, 6]
+            + [5, 1, 1, 1, 6],
+            "emitter": {"pos": (0, 0), "image": 0},
         }
     }
 
