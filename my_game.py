@@ -14,6 +14,9 @@ SPRITE_SCALING = 0.5
 TILE_SCALING = 4
 TILE_SIZE = TILE_SCALING * 16
 
+# When Chuchu is closer to destination than this, it has arrived
+IS_ON_TILE_DIFF = 2
+
 # Set the size of the screen
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
@@ -61,15 +64,15 @@ class Tile(arcade.Sprite):
     """
 
     types = {
-        0: {"out_dir": 0, "image": "wall_none.png"},
-        1: {"out_dir": 2, "image": "wall_top.png"},
-        2: {"out_dir": 3, "image": "wall_right.png"},
-        3: {"out_dir": 4, "image": "wall_bottom.png"},
-        4: {"out_dir": 1, "image": "wall_left.png"},
-        5: {"out_dir": 2, "image": "wall_top_left.png"},
-        6: {"out_dir": 3, "image": "wall_top_right.png"},
-        7: {"out_dir": 4, "image": "wall_bottom_right.png"},
-        8: {"out_dir": 1, "image": "wall_bottom_left.png"},
+        0: {"out_dir": (0, 0), "image": "wall_none.png"},
+        1: {"out_dir": (1, 0), "image": "wall_top.png"},
+        2: {"out_dir": (0, -1), "image": "wall_right.png"},
+        3: {"out_dir": (-1, 0), "image": "wall_bottom.png"},
+        4: {"out_dir": (0, 1), "image": "wall_left.png"},
+        5: {"out_dir": (1, 0), "image": "wall_top_left.png"},
+        6: {"out_dir": (0, -1), "image": "wall_top_right.png"},
+        7: {"out_dir": (-1, 0), "image": "wall_bottom_right.png"},
+        8: {"out_dir": (0, 1), "image": "wall_bottom_left.png"},
     }
 
     def __init__(self, type=0, **kwargs):
@@ -88,6 +91,87 @@ class Tile(arcade.Sprite):
         super().__init__(**kwargs)
 
 
+class Chuchu(arcade.Sprite):
+    """
+    A Chuchu (AKA a mouse)
+    """
+
+    def __init__(self, my_emitter, my_speed=100, **kwargs):
+        """
+        Setup new Chuchu
+        """
+        # The direction I'm moving in
+        self.my_direction = None
+
+        # Steps per tile
+        self.my_speed = my_speed
+
+        # Graphics
+        kwargs["filename"] = "images/Chuchu/Chuchu.png"
+
+        # Scale the graphics
+        kwargs["scale"] = TILE_SCALING
+
+        # Pass arguments to class arcade.Sprite
+        super().__init__(**kwargs)
+
+        # All chuchus start at their emitter
+        self.position = my_emitter.position
+
+        # My first move is in emit direction
+        self.move(my_emitter.emit_vector)
+
+        self.waiting_for_orders = False
+
+    def move(self, new_direction):
+        """
+        Gets a direction and calculates destination screen coordinates
+        """
+        # If the tile doesn't require change in direction
+        # I will continue in current direction
+        if new_direction is not (0, 0):
+            # Current direction is updated
+            self.my_direction = new_direction
+
+        # x and y position of destination tile
+        self.my_destination_screen_coordinates = [
+            n * TILE_SIZE for n in self.my_direction
+        ]
+
+        self.my_destination_screen_coordinates[0] += self.center_x
+        self.my_destination_screen_coordinates[1] += self.center_y
+
+        # Calculating speed by (new destination - current destination) / number of steps
+        self.change_x = (
+            self.my_destination_screen_coordinates[0] - self.center_x
+        ) / self.my_speed
+        self.change_y = (
+            self.my_destination_screen_coordinates[1] - self.center_y
+        ) / self.my_speed
+
+        self.waiting_for_orders = False
+
+    def update(self):
+        """
+        Move sprite
+        """
+
+        if (
+            arcade.get_distance(
+                self.my_destination_screen_coordinates[0],
+                self.my_destination_screen_coordinates[1],
+                self.position[0],
+                self.position[1],
+            )
+            > IS_ON_TILE_DIFF
+        ):
+            self.center_x += self.change_x
+            self.center_y += self.change_y
+        else:
+            self.position = self.my_destination_screen_coordinates
+            self.waiting_for_orders = True
+
+
 class Emitter(arcade.Sprite):
     """
     An emitter spawning chuchus
@@ -95,7 +179,7 @@ class Emitter(arcade.Sprite):
 
     emitter_types = {0: {"image": "images/Emitter/Emitter_jar.png"}}
 
-    def __init__(self, on_tile, type=0, **kwargs):
+    def __init__(self, on_tile, type=0, capacity=5, emit_vector=(-1, 0), **kwargs):
         """
         Setup new Emitter
         """
@@ -104,11 +188,24 @@ class Emitter(arcade.Sprite):
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
+
         self.go_to_tile(on_tile)
+
+        # Direction for the outspitted Chuchus
+        self.emit_vector = emit_vector
+
+        # Create queue for waiting Chuchus
+        self.chuchus_queue = arcade.SpriteList()
+        for n in range(capacity):
+            self.chuchus_queue.append(Chuchu(self))
 
     def go_to_tile(self, tile):
         self.on_tile = tile
         self.position = self.on_tile.position
+
+    def get_chuchu(self):
+        print(f"Popped a chuchu. {len(self.chuchus_queue) - 1} is left")
+        return self.chuchus_queue.pop()
 
 
 class TileMatrix:
@@ -155,6 +252,10 @@ class TileMatrix:
         emitter = Emitter(on_tile)
         self.add_emitter(emitter)
 
+        # Pull chuchus from emitters
+        for e in self.emitters:
+            self.chuchus.append(e.get_chuchu())
+
     def move_player(self, player_no, dir):
         """
         The player is moved
@@ -177,6 +278,16 @@ class TileMatrix:
         """
         self.emitters.append(emitter)
 
+    def get_tile_from_screen_coordinates(self, coordinates):
+        for t in self.matrix:
+            if (
+                arcade.get_distance(
+                    t.position[0], t.position[1], coordinates[0], coordinates[1]
+                )
+                < IS_ON_TILE_DIFF
+            ):
+                return t
+
     def draw(self):
         self.matrix.draw()
         self.emitters.draw()
@@ -184,8 +295,14 @@ class TileMatrix:
         self.players.draw()
 
     def update(self, delta_time):
+
         for c in self.chuchus:
-            c.update(delta_time)
+            if c.waiting_for_orders is True:
+                current_tile = self.get_tile_from_screen_coordinates(c.position)
+                assert current_tile is not None, "Chuchu was not on any tile"
+                c.move(current_tile.my_type["out_dir"])
+
+            c.update()
 
         for p in self.players:
             p.update(delta_time)
@@ -210,7 +327,7 @@ class PlayerShot(arcade.Sprite):
         self.center_y = center_y
         self.change_y = PLAYER_SHOT_SPEED
 
-    def update(self):
+    def update(self, delta_time):
         """
         Move the sprite
         """
