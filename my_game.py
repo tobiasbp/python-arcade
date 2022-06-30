@@ -7,6 +7,8 @@ Artwork from https://kenney.nl/assets/space-shooter-redux
 
 """
 import random
+from enum import Enum
+
 import arcade
 
 
@@ -56,6 +58,22 @@ class Player(arcade.Sprite):
         Move the sprite
         """
         pass
+
+
+class TileType(Enum):
+    """
+    Tiles with wall. Prefix T mean tile. next character is wall on x-axis, last character is wall on y-axis.
+    """
+
+    T__ = 0
+    T_T = 1
+    TR_ = 2
+    T_B = 3
+    TL_ = 4
+    TLT = 5
+    TRT = 6
+    TRB = 7
+    TLB = 8
 
 
 class Tile(arcade.Sprite):
@@ -123,13 +141,21 @@ class Chuchu(arcade.Sprite):
 
         self.waiting_for_orders = False
 
+    def drained(self):
+        """
+        When a Chuchu reaches a drain and should no longer exist
+        """
+
+        print("I was drained. Yes!")
+        self.kill()
+
     def move(self, new_direction):
         """
         Gets a direction and calculates destination screen coordinates
         """
         # If the tile doesn't require change in direction
         # I will continue in current direction
-        if new_direction is not (0, 0):
+        if not new_direction is (0, 0):
             # Current direction is updated
             self.my_direction = new_direction
 
@@ -208,6 +234,27 @@ class Emitter(arcade.Sprite):
         return self.chuchus_queue.pop()
 
 
+class Drain(arcade.Sprite):
+    """
+    A Drain for draining Chuchus
+    """
+
+    def __init__(self, on_tile, **kwargs):
+        kwargs["filename"] = "images/Drain/Drain.png"
+        kwargs["scale"] = TILE_SCALING
+
+        # Pass arguments to class arcade.Sprite
+        super().__init__(**kwargs)
+
+        self.position = on_tile.position
+
+    def drained(self, chuchu):
+        """
+        <chuchu> has been drained by me
+        """
+        print("I drained a Chuchu :D")
+
+
 class TileMatrix:
     """
     Matrix of Tile(s) >:)
@@ -256,6 +303,10 @@ class TileMatrix:
         for e in self.emitters:
             self.chuchus.append(e.get_chuchu())
 
+        # Create list for drains
+        self.drains = arcade.SpriteList()
+        self.add_drain(Drain(random.choice(self.matrix)))
+
     def move_player(self, player_no, dir):
         """
         The player is moved
@@ -272,14 +323,23 @@ class TileMatrix:
         # Update player position
         self.players[player_no].tile_pos = new_pos
 
-    def add_emitter(self, emitter):
+    def add_emitter(self, emitter: arcade.Sprite):
         """
-        An emitter is added and placed
+        Append emitter to list of emitters
         """
         self.emitters.append(emitter)
 
-    def get_tile_from_screen_coordinates(self, coordinates):
-        for t in self.matrix:
+    def add_drain(self, drain: arcade.Sprite):
+        """
+        Append drain to list of drains
+        """
+        self.drains.append(drain)
+
+    def get_sprite_from_screen_coordinates(self, coordinates, sprite_list):
+        """
+        Returns a sprite from <sprite_list> matching screen <coordinates>
+        """
+        for t in sprite_list:
             if (
                 arcade.get_distance(
                     t.position[0], t.position[1], coordinates[0], coordinates[1]
@@ -287,18 +347,37 @@ class TileMatrix:
                 < IS_ON_TILE_DIFF
             ):
                 return t
+        return None
 
     def draw(self):
         self.matrix.draw()
         self.emitters.draw()
+        self.drains.draw()
         self.chuchus.draw()
         self.players.draw()
 
     def update(self, delta_time):
 
         for c in self.chuchus:
+
+            # Handle waiting Chuchus
             if c.waiting_for_orders is True:
-                current_tile = self.get_tile_from_screen_coordinates(c.position)
+
+                # Is Chuchu on a drain
+                current_drain = self.get_sprite_from_screen_coordinates(
+                    c.position, self.drains
+                )
+                if not current_drain is None:
+                    c.drained()
+                    current_drain.drained(c)
+
+                    # Nothing more to do for this Chuchu
+                    break
+
+                # Look at tiles
+                current_tile = self.get_sprite_from_screen_coordinates(
+                    c.position, self.matrix
+                )
                 assert current_tile is not None, "Chuchu was not on any tile"
                 c.move(current_tile.my_type["out_dir"])
 
@@ -354,7 +433,14 @@ class MyGame(arcade.Window):
             + [4, 0, 0, 0, 2]
             + [5, 1, 1, 1, 6],
             "emitter": {"pos": (0, 0), "image": 0},
-        }
+        },
+        2: {
+            "tiles": [8, 3, 3, 3, 7]
+            + [4, 0, 0, 0, 2]
+            + [4, 0, 2, 4, 2]
+            + [4, 0, 2, 4, 2]
+            + [5, 1, 6, 5, 6]
+        },
     }
 
     def __init__(self, width, height):
@@ -421,7 +507,7 @@ class MyGame(arcade.Window):
         self.player_shot_list = arcade.SpriteList()
 
         # Create tile matrix
-        self.tile_matrix = TileMatrix(tile_types=MyGame.levels[1]["tiles"])
+        self.tile_matrix = TileMatrix(tile_types=MyGame.levels[2]["tiles"])
 
     def on_draw(self):
         """
