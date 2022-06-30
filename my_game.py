@@ -177,11 +177,11 @@ class Chuchu(arcade.Sprite):
 
         self.waiting_for_orders = False
 
-    def update(self):
+    def update(self, delta_time):
         """
         Move sprite
         """
-
+        # FIXME: use delta_time
         if (
             arcade.get_distance(
                 self.my_destination_screen_coordinates[0],
@@ -205,10 +205,18 @@ class Emitter(arcade.Sprite):
 
     emitter_types = {0: {"image": "images/Emitter/Emitter_jar.png"}}
 
-    def __init__(self, on_tile, type=0, capacity=5, emit_vector=(-1, 0), **kwargs):
+    def __init__(
+        self, on_tile, type=0, capacity=5, emit_vector=(-1, 0), emit_rate=2.0, **kwargs
+    ):
         """
         Setup new Emitter
         """
+
+        self.emit_rate = emit_rate
+
+        # Ready to emit a chuchu
+        self.emit_timer = 0
+
         kwargs["filename"] = Emitter.emitter_types[type]["image"]
         kwargs["scale"] = TILE_SCALING
 
@@ -230,8 +238,15 @@ class Emitter(arcade.Sprite):
         self.position = self.on_tile.position
 
     def get_chuchu(self):
-        print(f"Popped a chuchu. {len(self.chuchus_queue) - 1} is left")
-        return self.chuchus_queue.pop()
+
+        if any(self.chuchus_queue) and self.emit_timer <= 0:
+            self.emit_timer = self.emit_rate
+            print(f"Popped a chuchu. {len(self.chuchus_queue) - 1} is left")
+            return self.chuchus_queue.pop()
+
+    def update(self, delta_time):
+        if self.emit_timer > 0:
+            self.emit_timer -= delta_time
 
 
 class Drain(arcade.Sprite):
@@ -299,10 +314,6 @@ class TileMatrix:
         emitter = Emitter(on_tile)
         self.add_emitter(emitter)
 
-        # Pull chuchus from emitters
-        for e in self.emitters:
-            self.chuchus.append(e.get_chuchu())
-
         # Create list for drains
         self.drains = arcade.SpriteList()
         self.add_drain(Drain(random.choice(self.matrix)))
@@ -358,8 +369,17 @@ class TileMatrix:
 
     def update(self, delta_time):
 
-        for c in self.chuchus:
+        # Pull chuchus from emitters
+        for e in self.emitters:
+            c = e.get_chuchu()
 
+            if c is not None:
+                self.chuchus.append(c)
+
+            # Update emitter
+            e.update(delta_time)
+
+        for c in self.chuchus:
             # Handle waiting Chuchus
             if c.waiting_for_orders is True:
 
@@ -381,7 +401,7 @@ class TileMatrix:
                 assert current_tile is not None, "Chuchu was not on any tile"
                 c.move(current_tile.my_type["out_dir"])
 
-            c.update()
+            c.update(delta_time)
 
         for p in self.players:
             p.update(delta_time)
