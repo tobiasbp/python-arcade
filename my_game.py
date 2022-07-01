@@ -203,7 +203,7 @@ class Emitter(arcade.Sprite):
     An emitter spawning chuchus
     """
 
-    emitter_types = {0: {"image": "images/Emitter/Emitter_jar.png"}}
+    emitter_types = {0: "images/Emitter/Emitter_jar.png"}
 
     def __init__(
         self, on_tile, type=0, capacity=5, emit_vector=(-1, 0), emit_rate=2.0, **kwargs
@@ -220,7 +220,7 @@ class Emitter(arcade.Sprite):
 
         self.capacity = capacity
 
-        kwargs["filename"] = Emitter.emitter_types[type]["image"]
+        kwargs["filename"] = Emitter.emitter_types[type]
         kwargs["scale"] = TILE_SCALING
 
         # Pass arguments to class arcade.Sprite
@@ -263,7 +263,7 @@ class Drain(arcade.Sprite):
     """
 
     def __init__(self, on_tile, **kwargs):
-        kwargs["filename"] = "images/Drain/Drain.png"
+        kwargs["filename"] = "images/Drain/Drain_cream.png"
         kwargs["scale"] = TILE_SCALING
 
         # Pass arguments to class arcade.Sprite
@@ -290,7 +290,7 @@ class TileMatrix:
 
     def __init__(
         self,
-        tile_types,
+        level_data,
         matrix_width=5,
         matrix_height=5,
         tile_size=TILE_SIZE,
@@ -304,10 +304,10 @@ class TileMatrix:
         self.matrix_height = matrix_height
         self.matrix_offset_x = matrix_offset_x
         self.matrix_offset_y = matrix_offset_y
-
+        
         # Append tiles to matrix
         for i in range(matrix_width * matrix_height):
-            t = Tile(type=tile_types[i])
+            t = Tile(type=level_data["tiles"][i])
             t.center_x = ((i % matrix_width) * tile_size) + matrix_offset_x
             t.center_y = ((i // matrix_height) * tile_size) + matrix_offset_y
             self.matrix.append(t)
@@ -322,13 +322,15 @@ class TileMatrix:
 
         # Create list for Emitters
         self.emitters = arcade.SpriteList()
-        on_tile = random.choice(self.matrix)
-        emitter = Emitter(on_tile)
+        # Find tile to stand on
+        emitter_dest_tile = self.matrix[level_data["emitter"]["pos"]]
+        # Create emitter and tell it where to stand
+        emitter = Emitter(emitter_dest_tile, type=level_data["emitter"]["image"])
         self.add_emitter(emitter)
 
         # Create list for drains
         self.drains = arcade.SpriteList()
-        self.add_drain(Drain(random.choice(self.matrix)))
+        self.add_drain(Drain(self.matrix[level_data["drain"]["pos"]]))
 
     def move_player(self, player_no, dir):
         """
@@ -406,6 +408,14 @@ class TileMatrix:
                     # Nothing more to do for this Chuchu
                     break
 
+
+                # FIXME
+                # Out_dir dur jo ikke hvis man kommer fra den forkerte side.
+                # Eks:
+                # Vi har en tile i toppen med en væg kun på toppen.
+                # Der kommer en Chuchu fra højre.
+                # Tilens out_dir er til højre, så Chuchu drejer til højre selvom den kommer fra højre, uden at støde ind i væg (den går baglæns)
+                
                 # Look at tiles
                 current_tile = self.get_sprite_from_screen_coordinates(
                     c.position, self.matrix
@@ -424,6 +434,8 @@ class TileMatrix:
         if sum([d.no_drained for d in self.drains]) is sum(
             [e.capacity for e in self.emitters]
         ):
+            
+            # FIXME skift til næste level
             print("WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
             print("Game is over :)")
             exit(0)
@@ -472,15 +484,18 @@ class MyGame(arcade.Window):
             + [4, 0, 0, 0, 2]
             + [4, 0, 0, 0, 2]
             + [5, 1, 1, 1, 6],
-            "emitter": {"pos": (0, 0), "image": 0},
+            "emitter": {"pos": (4), "image": 0},
+            "drain": {"pos": (5)}
         },
         2: {
             "tiles": [8, 3, 3, 3, 7]
             + [4, 0, 0, 0, 2]
             + [4, 0, 2, 4, 2]
             + [4, 0, 2, 4, 2]
-            + [5, 1, 6, 5, 6]
-        },
+            + [5, 1, 6, 5, 6],
+            "emitter": {"pos": (1), "image": 0},
+            "drain": {"pos": (2)}
+        }
     }
 
     def __init__(self, width, height):
@@ -547,7 +562,7 @@ class MyGame(arcade.Window):
         self.player_shot_list = arcade.SpriteList()
 
         # Create tile matrix
-        self.tile_matrix = TileMatrix(tile_types=MyGame.levels[2]["tiles"])
+        self.tile_matrix = TileMatrix(level_data=MyGame.levels[1])
 
     def on_draw(self):
         """
