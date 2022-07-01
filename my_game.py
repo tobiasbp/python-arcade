@@ -6,9 +6,7 @@ This program uses the Arcade library found at http://arcade.academy
 Artwork from https://kenney.nl/assets/space-shooter-redux
 
 """
-import random
 from enum import Enum
-
 import arcade
 
 
@@ -282,6 +280,14 @@ class Drain(arcade.Sprite):
         print(f"I have drained a total number of {self.no_drained} chuchus :D")
 
 
+class Annotation(arcade.Sprite):
+    def __init__(self, **kwargs):
+        kwargs["filename"] = "images/Annotations/Annotation_2.png"
+        kwargs["scale"] = TILE_SCALING
+        # Pass arguments to class arcade.Sprite
+        super().__init__(**kwargs)
+
+
 class TileMatrix:
     """
     Matrix of Tile(s) >:)
@@ -332,9 +338,14 @@ class TileMatrix:
         self.drains = arcade.SpriteList()
         self.add_drain(Drain(self.matrix[level_data["drain"]["pos"]]))
 
+        # Create list for annotations
+        self.annotations = arcade.SpriteList()
+
     @property
     def level_clear(self):
-        # If all Chuchus are drained, level ends :P
+        """
+        If all Chuchus are drained, level ends :P
+        """
         if sum([d.no_drained for d in self.drains]) is sum(
             [e.capacity for e in self.emitters]
         ):
@@ -357,6 +368,10 @@ class TileMatrix:
 
         # Update player position
         self.players[player_no].tile_pos = new_pos
+
+    def add_annotation(self, player_no, annotation: Annotation):
+        annotation.position = self.players[player_no].position
+        self.annotations.append(annotation)
 
     def add_emitter(self, emitter: arcade.Sprite):
         """
@@ -386,6 +401,7 @@ class TileMatrix:
 
     def draw(self):
         self.matrix.draw()
+        self.annotations.draw()
         self.emitters.draw()
         self.drains.draw()
         self.chuchus.draw()
@@ -634,11 +650,12 @@ class MyGame(arcade.Window):
             self.tile_matrix.move_player(0, (1, 0))
 
         if key == FIRE_KEY:
-            new_shot = PlayerShot(
-                self.player_sprite.center_x, self.player_sprite.center_y
-            )
+            # new_shot = PlayerShot(
+            #    self.player_sprite.center_x, self.player_sprite.center_y
+            # )
+            self.tile_matrix.add_annotation(0, Annotation())
 
-            self.player_shot_list.append(new_shot)
+            # self.player_shot_list.append(new_shot)
 
     def on_key_release(self, key, modifiers):
         """
