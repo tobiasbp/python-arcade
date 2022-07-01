@@ -304,7 +304,7 @@ class TileMatrix:
         self.matrix_height = matrix_height
         self.matrix_offset_x = matrix_offset_x
         self.matrix_offset_y = matrix_offset_y
-        
+
         # Append tiles to matrix
         for i in range(matrix_width * matrix_height):
             t = Tile(type=level_data["tiles"][i])
@@ -331,6 +331,16 @@ class TileMatrix:
         # Create list for drains
         self.drains = arcade.SpriteList()
         self.add_drain(Drain(self.matrix[level_data["drain"]["pos"]]))
+
+    @property
+    def level_clear(self):
+        # If all Chuchus are drained, level ends :P
+        if sum([d.no_drained for d in self.drains]) is sum(
+            [e.capacity for e in self.emitters]
+        ):
+            return True
+        else:
+            return False
 
     def move_player(self, player_no, dir):
         """
@@ -408,14 +418,13 @@ class TileMatrix:
                     # Nothing more to do for this Chuchu
                     break
 
-
                 # FIXME
                 # Out_dir dur jo ikke hvis man kommer fra den forkerte side.
                 # Eks:
                 # Vi har en tile i toppen med en væg kun på toppen.
                 # Der kommer en Chuchu fra højre.
                 # Tilens out_dir er til højre, så Chuchu drejer til højre selvom den kommer fra højre, uden at støde ind i væg (den går baglæns)
-                
+
                 # Look at tiles
                 current_tile = self.get_sprite_from_screen_coordinates(
                     c.position, self.matrix
@@ -429,16 +438,6 @@ class TileMatrix:
             p.update(delta_time)
             p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
             p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
-
-        # If all Chuchus are drained, level ends :P
-        if sum([d.no_drained for d in self.drains]) is sum(
-            [e.capacity for e in self.emitters]
-        ):
-            
-            # FIXME skift til næste level
-            print("WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
-            print("Game is over :)")
-            exit(0)
 
 
 class PlayerShot(arcade.Sprite):
@@ -485,7 +484,7 @@ class MyGame(arcade.Window):
             + [4, 0, 0, 0, 2]
             + [5, 1, 1, 1, 6],
             "emitter": {"pos": (4), "image": 0},
-            "drain": {"pos": (5)}
+            "drain": {"pos": (5)},
         },
         2: {
             "tiles": [8, 3, 3, 3, 7]
@@ -494,8 +493,8 @@ class MyGame(arcade.Window):
             + [4, 0, 2, 4, 2]
             + [5, 1, 6, 5, 6],
             "emitter": {"pos": (1), "image": 0},
-            "drain": {"pos": (2)}
-        }
+            "drain": {"pos": (2)},
+        },
     }
 
     def __init__(self, width, height):
@@ -516,6 +515,9 @@ class MyGame(arcade.Window):
 
         # Set up matrix
         self.tile_matrix = None
+
+        # What level is it
+        self.level = None
 
         # Track the current state of what key is pressed
         self.left_pressed = False
@@ -561,8 +563,21 @@ class MyGame(arcade.Window):
         # Sprite lists
         self.player_shot_list = arcade.SpriteList()
 
+        # Start at level 1
+        self.level = 1
+
+        self.start_level()
+
+    def start_level(self):
         # Create tile matrix
-        self.tile_matrix = TileMatrix(level_data=MyGame.levels[1])
+        assert (
+            self.level in MyGame.levels.keys()
+        ), f"Error: no data for level {self.level}"
+        self.tile_matrix = TileMatrix(level_data=MyGame.levels[self.level])
+
+    def end_level(self):
+        self.level += 1
+        self.start_level()
 
     def on_draw(self):
         """
@@ -592,9 +607,12 @@ class MyGame(arcade.Window):
         """
 
         # Update the player shots
-        self.player_shot_list.update()
+        # self.player_shot_list.update()
 
         self.tile_matrix.update(delta_time)
+
+        if self.tile_matrix.level_clear:
+            self.end_level()
 
     def on_key_press(self, key, modifiers):
         """
