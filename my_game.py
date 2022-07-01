@@ -212,10 +212,13 @@ class Emitter(arcade.Sprite):
         Setup new Emitter
         """
 
+        # How fast will Chuchus spawn
         self.emit_rate = emit_rate
 
         # Ready to emit a chuchu
         self.emit_timer = 0
+
+        self.capacity = capacity
 
         kwargs["filename"] = Emitter.emitter_types[type]["image"]
         kwargs["scale"] = TILE_SCALING
@@ -233,6 +236,10 @@ class Emitter(arcade.Sprite):
         for n in range(capacity):
             self.chuchus_queue.append(Chuchu(self))
 
+    @property
+    def no_emitted(self):
+        return self.capacity - len(self.chuchus_queue)
+
     def go_to_tile(self, tile):
         self.on_tile = tile
         self.position = self.on_tile.position
@@ -241,8 +248,9 @@ class Emitter(arcade.Sprite):
 
         if any(self.chuchus_queue) and self.emit_timer <= 0:
             self.emit_timer = self.emit_rate
-            print(f"Popped a chuchu. {len(self.chuchus_queue) - 1} is left")
-            return self.chuchus_queue.pop()
+            c = self.chuchus_queue.pop()
+            print(f"Nunber of Chuchus emitted: {self.no_emitted}")
+            return c
 
     def update(self, delta_time):
         if self.emit_timer > 0:
@@ -263,11 +271,15 @@ class Drain(arcade.Sprite):
 
         self.position = on_tile.position
 
+        # Number of Chuchus drained
+        self.no_drained = 0
+
     def drained(self, chuchu):
         """
         <chuchu> has been drained by me
         """
-        print("I drained a Chuchu :D")
+        self.no_drained += 1
+        print(f"I have drained a total number of {self.no_drained} chuchus :D")
 
 
 class TileMatrix:
@@ -379,8 +391,8 @@ class TileMatrix:
             # Update emitter
             e.update(delta_time)
 
+        # Handle waiting Chuchus
         for c in self.chuchus:
-            # Handle waiting Chuchus
             if c.waiting_for_orders is True:
 
                 # Is Chuchu on a drain
@@ -407,6 +419,14 @@ class TileMatrix:
             p.update(delta_time)
             p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
             p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
+
+        # If all Chuchus are drained, level ends :P
+        if sum([d.no_drained for d in self.drains]) is sum(
+            [e.capacity for e in self.emitters]
+        ):
+            print("WOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
+            print("Game is over :)")
+            exit(0)
 
 
 class PlayerShot(arcade.Sprite):
