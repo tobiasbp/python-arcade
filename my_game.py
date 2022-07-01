@@ -40,7 +40,7 @@ class Player(arcade.Sprite):
         """
         Setup new Player object
         """
-        self.tile_pos = tile_pos
+        self._tile_pos = tile_pos
 
         # Graphics to use for Player
         kwargs["filename"] = "images/playerShip1_red.png"
@@ -50,6 +50,14 @@ class Player(arcade.Sprite):
 
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
+
+    @property
+    def tile_pos(self):
+        return self._tile_pos
+
+    @tile_pos.setter
+    def tile_pos(self, new_pos):
+        self._tile_pos = new_pos
 
     def update(self, delta_time):
         """
@@ -353,21 +361,30 @@ class TileMatrix:
         else:
             return False
 
-    def move_player(self, player_no, dir):
+    def move_player(self, player_no:int, dir: list):
         """
         The player is moved
         """
-        current_pos = self.players[player_no].tile_pos
+        p = self.players[player_no]
+        # Current grid position
+        current_pos = p.tile_pos
+        # New position in grid
         new_pos = (current_pos[0] + dir[0], current_pos[1] + dir[1])
 
         # Check if new position is legal
         if not -1 < new_pos[0] < self.matrix_width:
-            return
+            return None
         if not -1 < new_pos[1] < self.matrix_height:
-            return
+            return None
 
-        # Update player position
+        # Update player position in grid
         self.players[player_no].tile_pos = new_pos
+
+        # FIXME this should be handled in the player
+        # Update player position on screen
+        p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
+        p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
+
 
     def add_annotation(self, player_no, annotation: Annotation):
         annotation.position = self.players[player_no].position
@@ -452,9 +469,6 @@ class TileMatrix:
 
         for p in self.players:
             p.update(delta_time)
-            p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
-            p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
-
 
 class PlayerShot(arcade.Sprite):
     """
