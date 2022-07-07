@@ -15,7 +15,7 @@ TILE_SCALING = 4
 TILE_SIZE = TILE_SCALING * 16
 
 # When Chuchu is closer to destination than this, it has arrived
-IS_ON_TILE_DIFF = 2
+IS_ON_TILE_DIFF = 1.0
 
 # Set the size of the screen
 SCREEN_WIDTH = 800
@@ -120,9 +120,11 @@ class Chuchu(arcade.Sprite):
     A Chuchu (AKA a mouse)
     """
 
-    def __init__(self, my_emitter, my_speed=100, **kwargs):
+    def __init__(self, my_emitter, my_speed=2, **kwargs):
         """
-        Setup new Chuchu
+        Setup new Chuchu. It always moves towards <my_destination_screen_coordinates>.
+        When the destination is reached. I waits for a new dircetion passed to it with
+        move().
         """
         # The direction I'm moving in
         self.my_direction = None
@@ -139,12 +141,17 @@ class Chuchu(arcade.Sprite):
         # Pass arguments to class arcade.Sprite
         super().__init__(**kwargs)
 
+        # The screen coordinates I'm moving towards
+        self.my_destination_screen_coordinates = (self.center_x, self.center_y)
+
         # All chuchus start at their emitter
         self.position = my_emitter.position
 
         # My first move is in emit direction
+        # This will calculate my destination screen coordinates
         self.move(my_emitter.emit_vector)
 
+        # I have reached my destination, and I'm waiting for a new direction to move in.
         self.waiting_for_orders = False
 
     def drained(self):
@@ -157,19 +164,21 @@ class Chuchu(arcade.Sprite):
 
     def move(self, new_direction):
         """
-        Gets a direction and calculates destination screen coordinates
+        Takes a direction and updates destination screen coordinates.
         """
-        # If the tile doesn't require change in direction
-        # I will continue in current direction
-        if not new_direction is (0, 0):
+        # If the new_direction is NOT the null vector,
+        # I will continue in my current direction. Otherwise,
+        # I will change direction to new_direction
+        if new_direction != (0, 0):
             # Current direction is updated
             self.my_direction = new_direction
 
-        # x and y position of destination tile
+        # Update my screen destination relative to lower left of martrix
         self.my_destination_screen_coordinates = [
             n * TILE_SIZE for n in self.my_direction
         ]
 
+        # Translate to screen position relative to lower left of window
         self.my_destination_screen_coordinates[0] += self.center_x
         self.my_destination_screen_coordinates[1] += self.center_y
 
@@ -185,9 +194,8 @@ class Chuchu(arcade.Sprite):
 
     def update(self, delta_time):
         """
-        Move sprite
+        Move chuchu towards destination coordinates if not there yet.
         """
-        # FIXME: use delta_time
         if (
             arcade.get_distance(
                 self.my_destination_screen_coordinates[0],
@@ -197,9 +205,10 @@ class Chuchu(arcade.Sprite):
             )
             > IS_ON_TILE_DIFF
         ):
-            self.center_x += self.change_x
-            self.center_y += self.change_y
+            self.center_x += self.change_x * delta_time
+            self.center_y += self.change_y * delta_time
         else:
+            # Move to exact destination
             self.position = self.my_destination_screen_coordinates
             self.waiting_for_orders = True
 
@@ -361,7 +370,7 @@ class TileMatrix:
         else:
             return False
 
-    def move_player(self, player_no:int, dir: list):
+    def move_player(self, player_no: int, dir: list):
         """
         The player is moved
         """
@@ -384,7 +393,6 @@ class TileMatrix:
         # Update player position on screen
         p.center_x = p.tile_pos[0] * TILE_SIZE + self.matrix_offset_x
         p.center_y = p.tile_pos[1] * TILE_SIZE + self.matrix_offset_y
-
 
     def add_annotation(self, player_no, annotation: Annotation):
         annotation.position = self.players[player_no].position
@@ -469,6 +477,7 @@ class TileMatrix:
 
         for p in self.players:
             p.update(delta_time)
+
 
 class PlayerShot(arcade.Sprite):
     """
