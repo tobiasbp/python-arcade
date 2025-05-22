@@ -6,7 +6,7 @@ class Player(arcade.Sprite):
     The player
     """
 
-    def __init__(self, min_x_pos, max_x_pos, center_x=0, center_y=0, scale=1):
+    def __init__(self, min_x_pos, max_x_pos, min_y_pos, max_y_pos, center_x=0, center_y=0, scale=1, angle=90):
         """
         Setup new Player object
         """
@@ -14,6 +14,8 @@ class Player(arcade.Sprite):
         # Limits on player's x position
         self.min_x_pos = min_x_pos
         self.max_x_pos = max_x_pos
+        self.min_y_pos = min_y_pos
+        self.max_y_pos = max_y_pos
 
         # Pass arguments to class arcade.Sprite
         super().__init__(
@@ -21,6 +23,9 @@ class Player(arcade.Sprite):
             center_y=center_y,
             filename="images/playerShip1_red.png",
             scale=scale,
+            flipped_diagonally=True,
+            flipped_horizontally=True,
+            angle=angle
         )
 
     def on_update(self, delta_time):
@@ -30,6 +35,8 @@ class Player(arcade.Sprite):
 
         # Update player's x position based on current speed in x dimension
         self.center_x += delta_time * self.change_x
+        self.center_y += delta_time * self.change_y
+        self.angle += delta_time * self.change_angle
 
         # Enforce limits on player's x position
         if self.left < self.min_x_pos:
@@ -37,13 +44,18 @@ class Player(arcade.Sprite):
         elif self.right > self.max_x_pos:
             self.right = self.max_x_pos
 
+        if self.bottom < self.min_y_pos:
+            self.bottom = self.min_y_pos
+        elif self.top > self.max_y_pos:
+            self.top = self.max_y_pos
+
 
 class PlayerShot(arcade.Sprite):
     """
     A shot fired by the Player
     """
 
-    def __init__(self, center_x, center_y, max_y_pos, speed=4, scale=1, start_angle=90):
+    def __init__(self, center_x, center_y, max_y_pos, speed=4, scale=1, angle=90):
         """
         Setup new PlayerShot object
         """
@@ -64,7 +76,7 @@ class PlayerShot(arcade.Sprite):
         self.max_y_pos = max_y_pos
 
         # Shoot points in this direction
-        self.angle = start_angle
+        self.angle = angle
 
         # Shot moves forward. Sets self.change_x and self.change_y
         self.forward(speed)
