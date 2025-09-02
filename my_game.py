@@ -8,6 +8,7 @@ Artwork from https://kenney.nl/assets/space-shooter-redux
 """
 
 import arcade
+import random
 
 # Import sprites from local file my_sprites.py
 from my_sprites import Player, PlayerShot
@@ -21,12 +22,36 @@ SCREEN_HEIGHT = 600
 
 # Variables controlling the player
 PLAYER_LIVES = 3
-PLAYER_SPEED_X = 200
+PLAYER_SPEED_FORWARDS = 30
+PLAYER_SPEED_BACKWARDS = PLAYER_SPEED_FORWARDS
+PLAYER_SPEED_ANGLE = 200
 PLAYER_START_X = SCREEN_WIDTH / 2
 PLAYER_START_Y = 50
 PLAYER_SHOT_SPEED = 300
 
-FIRE_KEY = arcade.key.SPACE
+KEYS_FIRE = [arcade.key.SPACE, arcade.key.RSHIFT]
+KEYS_RIGHT = [arcade.key.D, arcade.key.RIGHT]
+KEYS_LEFT = [arcade.key.A, arcade.key.LEFT]
+KEYS_UP = [arcade.key.W, arcade.key.UP]
+KEYS_DOWN = [arcade.key.S, arcade.key.DOWN]
+
+WALLS = 15
+
+P1_KEYS = {
+    arcade.key.A: "LEFT",
+    arcade.key.D: "RIGHT",
+    arcade.key.W: "UP",
+    arcade.key.S: "DOWN",
+    arcade.key.E: "FIRE"
+}
+
+P2_KEYS = {
+    arcade.key.LEFT: "LEFT",
+    arcade.key.RIGHT: "RIGHT",
+    arcade.key.UP: "UP",
+    arcade.key.DOWN: "DOWN",
+    arcade.key.PAGEUP: "FIRE"
+}
 
 
 class GameView(arcade.View):
@@ -39,27 +64,51 @@ class GameView(arcade.View):
         This is run once when we switch to this view
         """
 
-        # Variable that will hold a list of shots fired by the player
-        self.player_shot_list = arcade.SpriteList()
-
         # Set up the player info
-        self.player_score = 0
+        self.player_score = 20
         self.player_lives = PLAYER_LIVES
 
         # Create a Player object
-        self.player = Player(
+        p1 = Player(
             center_x=PLAYER_START_X,
             center_y=PLAYER_START_Y,
             min_x_pos=0,
             max_x_pos=SCREEN_WIDTH,
+            max_y_pos=600,
+            min_y_pos=0,
             scale=SPRITE_SCALING,
+            controls=P1_KEYS
         )
 
-        # Track the current state of what keys are pressed
-        self.left_pressed = False
-        self.right_pressed = False
-        self.up_pressed = False
-        self.down_pressed = False
+        p2 = Player(
+            center_x=PLAYER_START_X,
+            center_y=PLAYER_START_Y+100,
+            min_x_pos=0,
+            max_x_pos=SCREEN_WIDTH,
+            max_y_pos=600,
+            min_y_pos=0,
+            scale=SPRITE_SCALING,
+            controls=P2_KEYS
+        )
+
+        self.player_list = arcade.SpriteList()
+        self.player_list.append(p1)
+        self.player_list.append(p2)
+
+
+        self.walls_list = arcade.SpriteList()
+
+        for i in range(WALLS):
+            s = random.randint(1, 2)
+            a = random.choice([0, 90])
+            w = arcade.Sprite(
+                center_x=random.randint(0,SCREEN_WIDTH),
+                center_y=random.randint(100, SCREEN_HEIGHT-100),
+                filename= "images/UI/buttonBlue.png",
+                scale=s/3,
+                angle=a,
+            )
+            self.walls_list.append(w)
 
         # Get list of joysticks
         joysticks = arcade.get_joysticks()
@@ -94,15 +143,16 @@ class GameView(arcade.View):
         # Clear screen so we can draw new stuff
         self.clear()
 
-        # Draw the player shot
-        self.player_shot_list.draw()
+        # Draw the player sprites
+        for p in self.player_list:
+            p.shots_list.draw()
+            p.draw()
 
-        # Draw the player sprite
-        self.player.draw()
+        self.walls_list.draw()
 
         # Draw players score on screen
         arcade.draw_text(
-            f"SCORE: {self.player_score}",  # Text to show
+            f"Shots left: {self.player_score}",  # Text to show
             10,  # X position
             SCREEN_HEIGHT - 20,  # Y positon
             arcade.color.WHITE,  # Color of text
@@ -113,27 +163,31 @@ class GameView(arcade.View):
         Movement and game logic
         """
 
-        # Calculate player speed based on the keys pressed
-        self.player.change_x = 0
+        # Player speed decreases
+        for p in self.player_list:
+            decrease = 0.9
+            p.change_x *= decrease
+            p.change_y *= decrease
 
-        # Move player with keyboard
-        if self.left_pressed and not self.right_pressed:
-            self.player.change_x = -PLAYER_SPEED_X
-        elif self.right_pressed and not self.left_pressed:
-            self.player.change_x = PLAYER_SPEED_X
+            p.on_update(delta_time)
+            p.shots_list.update()
 
-        # Move player with joystick if present
-        if self.joystick:
-            self.player.change_x = round(self.joystick.x) * PLAYER_SPEED_X
+            for w in self.walls_list:
+                for s in w.collides_with_list(p.shots_list):
+                    s.kill()
 
-        # Update player sprite
-        self.player.on_update(delta_time)
 
-        # Update the player shots
-        self.player_shot_list.on_update(delta_time)
 
-        # The game is over when the player scores a 100 points
-        if self.player_score >= 100:
+            for w in self.walls_list:
+                if w.collides_with_sprite(p):
+                    # Gives the player the opposite speed
+                    p.change_x *= -1.2
+                    p.change_y *= -1.2
+                    # Moves the player out of the wall - important that this is last!
+                    p.on_update(delta_time)
+
+        # The game is over when the player shoots 20 times
+        if self.player_score <= 0:
             self.game_over()
 
     def game_over(self):
@@ -151,55 +205,40 @@ class GameView(arcade.View):
         """
         Called whenever a key is pressed.
         """
+        for p in self.player_list:
+            p.on_key_press(key, modifiers)
 
         # End the game if the escape key is pressed
         if key == arcade.key.ESCAPE:
             self.game_over()
 
-        # Track state of arrow keys
-        if key == arcade.key.UP:
-            self.up_pressed = True
-        elif key == arcade.key.DOWN:
-            self.down_pressed = True
-        elif key == arcade.key.LEFT:
-            self.left_pressed = True
-        elif key == arcade.key.RIGHT:
-            self.right_pressed = True
 
-        if key == FIRE_KEY:
-            # Player gets points for firing?
-            self.player_score += 10
+        if key in KEYS_FIRE:
+            # Player loses health for shooting
+            self.player_score -= 1
 
-            # Create the new shot
-            new_shot = PlayerShot(
-                center_x=self.player.center_x,
-                center_y=self.player.center_y,
-                speed=PLAYER_SHOT_SPEED,
-                max_y_pos=SCREEN_HEIGHT,
-                scale=SPRITE_SCALING,
-            )
-
-            # Add the new shot to the list of shots
-            self.player_shot_list.append(new_shot)
 
     def on_key_release(self, key, modifiers):
         """
         Called whenever a key is released.
         """
+        for p in self.player_list:
+            p.on_key_release(key, modifiers)
 
-        if key == arcade.key.UP:
+        if key in KEYS_UP:
             self.up_pressed = False
-        elif key == arcade.key.DOWN:
+        elif key in KEYS_DOWN:
             self.down_pressed = False
-        elif key == arcade.key.LEFT:
+        elif key in KEYS_LEFT:
             self.left_pressed = False
-        elif key == arcade.key.RIGHT:
+        elif key in KEYS_RIGHT:
             self.right_pressed = False
 
     def on_joybutton_press(self, joystick, button_no):
         print("Button pressed:", button_no)
         # Press the fire key
-        self.on_key_press(FIRE_KEY, [])
+        if len(KEYS_FIRE) > 0:
+            self.on_key_press(KEYS_FIRE[0], [])
 
     def on_joybutton_release(self, joystick, button_no):
         print("Button released:", button_no)
@@ -222,7 +261,7 @@ class IntroView(arcade.View):
         """
 
         # Set the background color
-        arcade.set_background_color(arcade.csscolor.DARK_SLATE_BLUE)
+        arcade.set_background_color(arcade.csscolor.TAN)
 
         # Reset the viewport, necessary if we have a scrolling game and we need
         # to reset the viewport back to the start so we can see what we draw.
@@ -236,10 +275,10 @@ class IntroView(arcade.View):
 
         # Draw some text
         arcade.draw_text(
-            "Instructions Screen",
+            "The Game",
             self.window.width / 2,
             self.window.height / 2,
-            arcade.color.WHITE,
+            arcade.color.AQUAMARINE,
             font_size=50,
             anchor_x="center",
         )
@@ -249,7 +288,7 @@ class IntroView(arcade.View):
             "Press any key to start the game",
             self.window.width / 2,
             self.window.height / 2 - 75,
-            arcade.color.WHITE,
+            arcade.color.COOL_BLACK,
             font_size=20,
             anchor_x="center",
         )
@@ -258,8 +297,16 @@ class IntroView(arcade.View):
         """
         Start the game when any key is pressed
         """
-        game_view = GameView()
-        self.window.show_view(game_view)
+        self.game_start()
+
+    def on_mouse_release(self, x: float, y: float, button: int, modifiers: int):
+        """
+        Start the game when any mouse button is released
+        """
+        self.game_start()
+
+    def game_start(self):
+        self.window.show_view(GameView())
 
 
 class GameOverView(arcade.View):
@@ -312,7 +359,7 @@ class GameOverView(arcade.View):
 
         # Draw player's score
         arcade.draw_text(
-            f"Your score: {self.score}",
+            f"You had {self.score} shots left!",
             self.window.width / 2,
             self.window.height / 2 - 75,
             arcade.color.WHITE,
